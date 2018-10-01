@@ -1,0 +1,4 @@
+cd /hive-config
+sudo cp nvidia-oc.conf.high nvidia-oc.conf
+sudo nvidia-oc
+

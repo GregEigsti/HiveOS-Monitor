@@ -4,34 +4,13 @@
 
 HiveOS-Monitor
 
-HiveOS and currency monitoring script with temperature monitoring and under/overclocks for heat management.
-
-This project is a system to 
-  * monitor HiveOS collateral
-  * gather related crypto currency data real time
-  * monitor miner temperature
-  * under/overclock miner based on temperature
-  * display relevant data via CLI/stdout interface
-
-This script is always running and I monitor it constantly; the values output to the CLI are those that 
-I find most useful. The temperature reading and SSH based OC adjusting worked well for my first (hot)
-summer of mining. The OC adjusting parts are commented out and have not been tested for a while (autofan!)
-
-Temperature system interacts with Adafruit IO to provide historical charts and graphs. Sensors are based on 
-Adafruit Feather M0 900MHz packet radio boards (not LoRa). Written for a single farm/miner/currency so there 
-will be bugs as it is expanded to larger Hive setups and different currencies. I would be happy to add more 
-details on the temperature sensing / OC adjusting if theere is interest.
-
-Use of these scripts are at your own risk and ou will need to add your account secrets to secrets.py
+HiveOS and currency monitoring script with temperature monitoring and heat management.
 
 Project files:
     hiveos.py      - main script and stdout output code
-    temperature.py - temperature monitoring and SSH based OC control. Also interacts with Adafruit IO for UI goodness
+    temperature.py - temperature monitor / SSH based OC control. Interacts with Adafruit IO for UI goodness
     webhelpers.py  - web data fetch and parsing methods
     secrets.py     - account login credentials
-
-If I had to pick a license it would be MIT. Attribution is nice; if you make a pile of money with my code throw me
-a few duckets or offer me a job ;)
 
 Greg Eigsti
 greg@eigsti.com
@@ -58,7 +37,7 @@ def web_get(url, json_load=True, headers=None):
 
     #TODO: timeout neded?
     try:
-        r = requests.get(url=url, headers=headers)
+        r = requests.get(url=url, headers=headers, verify=False)
         if headers:
             return r
         if not json_load:
@@ -107,7 +86,7 @@ def get_eth_price():
 ## get_eth_difficulty - gets latest eth difficulty
 ########################################################################################################################
 def get_eth_difficulty():
-    data = web_get('https://www.etherchain.org/api/basic_stats/')
+    data = web_get('https://www.etherchain.org/api/basic_stats/', json_load=True)
     if data:
         return float(data['currentStats']['difficulty'])
     return 0.0
@@ -128,12 +107,9 @@ def get_verge_price():
 ## get_verge_difficulty - gets latest verge difficulty
 ########################################################################################################################
 def get_verge_difficulty():
-    data = web_get('https://www.coincalculators.io/coin.aspx?crypto=verge+blake2s-mining-calculator', json_load=False)
+    data = web_get('https://verge-blockchain.info/api/getdifficulty', json_load=True)
     if data:
-        for line in data.splitlines():
-            match = re.search('<td><span id="currentdiff">(\d.?\d+)\sM</span></td>', line)
-            if match:
-                return float(match.group(1))
+        return float(data['proof-of-work'])
     return 0.0
 
 ########################################################################################################################
@@ -148,45 +124,50 @@ def get_monero_price():
                 return float(match.group(1))
     return 0.0
 
-
 ########################################################################################################################
 ## get_monero_difficulty - gets latest monero difficulty
 ########################################################################################################################
 def get_monero_difficulty():
-    data = web_get('http://moneroblocks.info/api/get_stats/')
+    data = web_get('http://moneroblocks.info/api/get_stats/', json_load=True)
     if data:
         return float(data['difficulty'])
-    return 0.0
-
-########################################################################################################################
-## get_eth_balance - get balance in eth wallet
-########################################################################################################################
-def get_eth_balance(address):
-    data = web_get('https://api.gastracker.io/addr/{}'.format(address))
-    if data:
-        return float(data['balance']['ether'])
     return 0.0
 
 ########################################################################################################################
 ## get_zcash_balance - get balance in zcash wallet
 ########################################################################################################################
 def get_zcash_balance(address):
-    data = web_get('https://api.zcha.in/v2/mainnet/accounts/{}'.format(address))
+    data = web_get('https://api.zcha.in/v2/mainnet/accounts/{}'.format(address), json_load=True)
     if data and data['balance']:
         return float(data['balance'])
     return 0.0
 
 ########################################################################################################################
+## get_eth_balance - get balance in eth wallet
+########################################################################################################################
+def get_eth_balance(address):
+    data = web_get('https://api.gastracker.io/addr/{}'.format(address), json_load=True)
+    if data:
+        return float(data['balance']['ether'])
+    return 0.0
+
+########################################################################################################################
+## get_verge_balance - get balance in verege wallet
+########################################################################################################################
+def get_verge_balance(address):
+    return float(web_get('https://verge-blockchain.info/ext/getbalance/{}'.format(address), json_load=False))
+
+########################################################################################################################
 ## get_zcash_account - get zcash account/pool data
 ########################################################################################################################
 def get_zcash_account(address):
-    return web_get('https://api-zcash.flypool.org/miner/:{}/currentstats'.format(address))
+    return web_get('https://api-zcash.flypool.org/miner/:{}/currentstats'.format(address), json_load=True)
 
 ########################################################################################################################
 ## get_eth_account - get eth account/pool data
 ########################################################################################################################
 def get_eth_account(address):
-    return web_get('https://api.ethermine.org/miner/{}/dashboard'.format(address))
+    return web_get('https://api.ethermine.org/miner/{}/dashboard'.format(address), json_load=True)
 
 ########################################################################################################################
 ## get_verge_account - get verge account/pool data
@@ -202,6 +183,8 @@ def hive_login():
     global access_token
 
     #TODO: verify access token is still good
+    #response = web_get('https://api2.hiveos.farm/api/v2/auth/check')
+    #print response
 
     if not access_token:
         url = 'https://api2.hiveos.farm/api/v2/auth/login'
@@ -258,5 +241,5 @@ def get_worker_oc(farm, worker):
 ## main script entry point
 #####################################################################################
 if __name__ == "__main__":
-    print 'Intended to be run as a library'
+    print 'Intended to be exeuted as a HiveOS-Monitor library'
 

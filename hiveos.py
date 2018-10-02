@@ -4,34 +4,24 @@
 
 HiveOS-Monitor
 
-HiveOS and currency monitoring script with temperature monitoring and under/overclocks for heat management.
+HiveOS and currency monitoring script with temperature monitoring and heat management.
 
-This project is a system to 
-  * monitor HiveOS collateral
-  * gather related crypto currency data real time
-  * monitor miner temperature
-  * under/overclock miner based on temperature
-  * display relevant data via CLI/stdout interface
-
-This script is always running and I monitor it constantly; the values output to the CLI are those that 
-I find most useful. The temperature reading and SSH based OC adjusting worked well for my first (hot)
-summer of mining. The OC adjusting parts are commented out and have not been tested for a while (autofan!)
+  * Displays relevant data via CLI/stdout interface
+  * Monitors HiveOS farms/miners
+  * Monitors miner temperature
+  * Gathers crypto currency data real time
+  * Under/overclock miner based on temperature
 
 Temperature system interacts with Adafruit IO to provide historical charts and graphs. Sensors are based on 
-Adafruit Feather M0 900MHz packet radio boards (not LoRa). Written for a single farm/miner/currency so there 
-will be bugs as it is expanded to larger Hive setups and different currencies. I would be happy to add more 
-details on the temperature sensing / OC adjusting if theere is interest.
-
-Use of these scripts are at your own risk and ou will need to add your account secrets to secrets.py
+Adafruit Feather M0 900MHz packet radio boards (not LoRa).
 
 Project files:
     hiveos.py      - main script and stdout output code
-    temperature.py - temperature monitoring and SSH based OC control. Also interacts with Adafruit IO for UI goodness
+    temperature.py - temperature monitor / SSH based OC control. Interacts with Adafruit IO for UI goodness
     webhelpers.py  - web data fetch and parsing methods
     secrets.py     - account login credentials
 
-If I had to pick a license it would be MIT. Attribution is nice; if you make a pile of money with my code throw me
-a few duckets or offer me a job ;)
+Attribution is nice; if you make a pile of money with this code throw me a few duckets or offer me a job ;)
 
 Greg Eigsti
 greg@eigsti.com
@@ -43,9 +33,12 @@ import os
 import sys
 import time
 
+run_temperature = False
+
 # project imports
-import temperature as temp
 import webhelpers as wh
+if run_temperature:
+    import temperature as temp
 
 
 ########################################################################################################################
@@ -85,14 +78,14 @@ def main():
     #####################################################################################
     ## Start sensor read thread. 
     #####################################################################################
-    temp.start()
+    if run_temperature:
+        temp.start()
 
     #####################################################################################
     ## Loop, sleep 30, rinse, repeat
     #####################################################################################
     while True:
         try:
-            wallets = []
             account = None
             zcash_price = None
             zcash_diff = None
@@ -114,39 +107,56 @@ def main():
             for farm in farms:
                 farm_wallets = wh.get_farm_wallets(farm)
                 for worker in wh.get_farm_workers(farm):
+                    #####################################################################################
+                    ## print header to stdout
+                    #####################################################################################
                     print '----------------------------------------------------------------------'
                     print str(datetime.datetime.today())
+                    print
 
-                    total_khs = float(worker['miners_summary']['hashrates'][0]['hash'])
-                    print worker['name'], \
-                          worker['ip_addresses'][0], \
-                          worker['miners_summary']['hashrates'][0]['miner'], \
-                          worker['miners_summary']['hashrates'][0]['algo'], \
-                          '{:1.3f}'.format(total_khs)
+                    print worker['name'],
 
-                    #print 'acc: {}, inv {}, rej {}, ratio {}'.format(
-                    #    worker['miners_summary']['hashrates'][0]['shares']['accepted'],
-                    #    worker['miners_summary']['hashrates'][0]['shares']['invalid'],
-                    #    worker['miners_summary']['hashrates'][0]['shares']['rejected'],
-                    #worker['miners_summary']['hashrates'][0]['shares']['ratio'])
-                    print 'acc: {}, inv {}, rej {}'.format(
-                        worker['miners_summary']['hashrates'][0]['shares']['accepted'],
-                        worker['miners_summary']['hashrates'][0]['shares']['invalid'],
-                        worker['miners_summary']['hashrates'][0]['shares']['rejected'])
+                    for item in worker['ip_addresses']:
+                        print item,
+                    print
+
+                    for item in worker['miners_summary']['hashrates']:
+                        print item['miner'],
+                        print item['algo'],
+
+                        total_khs = float(item['hash'])
+                        print '{:1.3f}'.format(total_khs)
+
+                        print 'acc: {}, inv {}, rej {}, ratio {}'.format(
+                            item['shares']['accepted'],
+                            item['shares']['invalid'],
+                            item['shares']['rejected'],
+                            item['shares']['ratio'])
+                    print
 
                     #oc change ability commented out. only displays current temps.
-                    temp.check_temperatures()
+                    if run_temperature:
+                        temp.check_temperatures()
 
+                    #get hiveos reported oc data
                     oc = wh.get_worker_oc(farm, worker)
 
+                    #get hiveos reported power use list
                     power_list = []
                     for gpu in worker['gpu_stats']:
                         power_list.append(gpu['power'])
 
+                    #####################################################################################
+                    #print miner info table
+                    #####################################################################################
                     print '        GPU0 GPU1 GPU2 GPU3 GPU4 GPU5 GPU6 GPU7'
                     print '      ------------------------------------------------'
-                    printrow('TEMPC |', worker['miners_stats']['hashrates'][0]['temps'])
-                    printrow('HASH  |', worker['miners_stats']['hashrates'][0]['hashes'], crlf=False, flt=True)
+                    #print hiveos miner temps
+                    for item in worker['miners_stats']['hashrates']:
+                        printrow('TEMPC |', item['temps'])
+                    #print hiveos miner hashes
+                    for item in worker['miners_stats']['hashrates']:
+                        printrow('HASH  |', item['hashes'], crlf=False, flt=True)
                     print ' {:1.3f}'.format(total_khs)
                     printrow('CLOCK |', oc['oc_config']['default']['nvidia']['core_clock'].split())
                     printrow('POWER |', power_list, crlf=False)
@@ -156,9 +166,15 @@ def main():
                     #printrow('NVFAN |', oc['oc_config']['default']['nvidia']['nvidia_fan'].split())
                     printrow('FAN   |', oc['oc_config']['default']['nvidia']['fan_speed'].split())
 
+                    print 'Workers on: {} GPUs on: {} Workers off: {} GPUs off: {}\n'.format(
+                        farm['stats']['workers_online'],
+                        farm['stats']['gpus_online'],
+                        farm['stats']['workers_offline'],
+                        farm['stats']['gpus_offline'])
+
                 #####################################################################################
                 ## Iterate through cached wallets for this farm
-                ##  get and cache wallet info, cash price, difficulty
+                ##  get and print wallet info, cash price, difficulty
                 #####################################################################################
                 for wallet in farm_wallets:
                     unconfirmed = 0.0
@@ -166,19 +182,24 @@ def main():
                     balance = 0.0
                     price = 0.0
                     difficulty = 0.0
-                    price_data = None
-                    diff_data = None
+                    staleShares = 0.0
+                    activeWorkers = 0.0
+                    invalidShares = 0.0
+                    validShares = 0.0
 
+                    coin = wallet['coin']
+                    name = wallet['name']
                     wal = wallet['wal']
+
+                    print '----------------------------------------------------------------------'
                
                     #####################################################################################
                     ## Fetch and store ZEC wallet info, price, difficulty
                     #####################################################################################
-                    if wallet['coin'] == 'ZEC':
+                    if coin == 'ZEC':
                         price = wh.get_zcash_price()
                         difficulty = wh.get_zcash_difficulty()
                         balance = wh.get_zcash_balance(wal)
-
                         account = wh.get_zcash_account(wal)
                         if account and account['data'] != 'NO DATA':
                             if account['data']['unconfirmed']:
@@ -186,23 +207,13 @@ def main():
                             if account['data']['unpaid']:
                                 unpaid = float(account['data']['unpaid']) / 1000000.0
 
-                        wallets.append({'coin': wallet['coin'],
-                                'price': price,
-                                'difficulty': difficulty,
-                                'name': wallet['name'],
-                                'unconfirmed': unconfirmed,
-                                'unpaid': unpaid,
-                                'wal': wal,
-                                'balance': balance})
-
                     #####################################################################################
                     ## Fetch and store ETH wallet info, price, difficulty
                     #####################################################################################
-                    elif wallet['coin'] == 'ETH':
+                    elif coin == 'ETH':
                         price = wh.get_eth_price()
                         difficulty = wh.get_eth_difficulty()
                         balance = wh.get_eth_balance(wal)
-
                         account = wh.get_eth_account(wal)
                         if account:
                             unpaid = account['data']['currentStatistics']['unpaid'] / 1000000000000000000.0
@@ -211,149 +222,67 @@ def main():
                             invalidShares = account['data']['currentStatistics']['invalidShares']
                             validShares = account['data']['currentStatistics']['validShares']
 
-                            wallets.append({'coin': wallet['coin'], 
-                                'price': price,
-                                'difficulty': difficulty,
-                                'name': wallet['name'], 
-                                'unconfirmed': unconfirmed, 
-                                'unpaid': unpaid, 'wal': wal, 
-                                'balance': balance, 
-                                'staleShares': staleShares, 
-                                'activeWorkers': activeWorkers, 
-                                'invalidShares': invalidShares, 
-                                'validShares': validShares})
-
                     #####################################################################################
                     ## Fetch and store XVG wallet info, price, difficulty
                     #####################################################################################
-                    elif wallet['coin'] == 'XVG':
+                    elif coin == 'XVG':
                         price = wh.get_verge_price()
                         difficulty = wh.get_verge_difficulty()
-
+                        balance = wh.get_verge_balance(wal)
                         account = wh.get_verge_account(wal)
                         if account:
-                            #print account
                             unconfirmed = account['unsold']
-                            balance = account['total'] - account['unpaid']
-
-                            wallets.append({'coin': wallet['coin'], 
-                                'price': price,
-                                'difficulty': difficulty,
-                                'name': wallet['name'], 
-                                'unconfirmed': unconfirmed, 
-                                'unpaid': account['balance'], 
-                                'wal': wal, 
-                                'balance': balance})
+                            unpaid = account['balance']
 
                     #####################################################################################
                     ## Fetch and store XMR wallet info, price, difficulty
                     #####################################################################################
-                    elif wallet['coin'] == 'XMR':
+                    elif coin == 'XMR':
                         price = wh.get_monero_price()
                         difficulty = wh.get_monero_difficulty()
 
                         #TODO: add monero wallet info
 
-                        wallets.append({'coin': wallet['coin'], 
-                            'price': price,
-                            'difficulty': difficulty,
-                            'name': wallet['name'], 
-                            'unconfirmed': unconfirmed, 
-                            'unpaid': unpaid, 
-                            'wal': wal, 
-                            'balance': balance})
-
+                    #####################################################################################
+                    ## Unknown coin
+                    #####################################################################################
                     else:
-                        wallets.append({'coin': wallet['coin'], 
-                            'price': 'TBI',
-                            'difficulty': 'TBI',
-                            'name': wallet['name'], 
-                            'unconfirmed': 'TBI', 
-                            'unpaid': 'TBI', 
-                            'wal': wal, 
-                            'balance': 'TBI'})
+                        print 'Unknown coin: {}'.format(coin)
 
-            print '======================================================================'
+                    #####################################################################################
+                    ## Display wallet info, price, difficulty
+                    #####################################################################################
+                    if coin == 'ETH':
+                        print '{}: \'{}\' {}\n Workers: {}, Stale: {}, Inv: {}, Val: {}, Unp: {} (${:1.2f}), Bal: {} (${:1.2f})'.format(
+                            coin,
+                            name,
+                            wal,
+                            activeWorkers,
+                            staleShares,
+                            invalidShares,
+                            validShares,
+                            unpaid,
+                            unpaid * price,
+                            balance,
+                            balance * price)
+                    else:
+                        print '{}: \'{}\' {}\n Unc: {} Unp: {}, Tot: {}, Bal: {} (${:1.2f})'.format(
+                            coin,
+                            name,
+                            wal,
+                            unconfirmed,
+                            unpaid,
+                            unconfirmed + unpaid,
+                            balance,
+                            balance * price)
 
-            print 'Workers on: {} GPUs on: {} Workers off: {} GPUs off: {}'.format(
-                farms[0]['stats']['workers_online'],
-                farms[0]['stats']['gpus_online'],
-                farms[0]['stats']['workers_offline'],
-                farms[0]['stats']['gpus_offline'])
-
-            #####################################################################################
-            ## Iterate through all cached wallets and display 
-            ##  cash price / difficulty and wallet info
-            #####################################################################################
-            for wallet in wallets:
-                #####################################################################################
-                ## Display ZEC wallet info, price, difficulty
-                #####################################################################################
-                if wallet['coin'] == 'ZEC':
-                    print '{}: \'{}\' {}\n Unc: {} Unp: {}, Tot: {}, Bal: {} (${:1.2f})'.format(
-                        wallet['coin'],
-                        wallet['name'],
-                        wallet['wal'],
-                        wallet['unconfirmed'], wallet['unpaid'],
-                        wallet['unconfirmed'] + wallet['unpaid'],
-                        wallet['balance'], wallet['balance'] * wallet['price'])
-                #####################################################################################
-                ## Display ETH wallet info, price, difficulty
-                #####################################################################################
-                elif wallet['coin'] == 'ETH':
-                    print '{}: \'{}\' {}\n Workers: {}, Stale: {}, Inv: {}, Val: {}, Unp: {} (${:1.2f}), Bal: {} (${:1.2f})'.format(
-                        wallet['coin'],
-                        wallet['name'],
-                        wallet['wal'],
-                        wallet['activeWorkers'],
-                        wallet['staleShares'],
-                        wallet['invalidShares'],
-                        wallet['validShares'],
-                        wallet['unpaid'],
-                        wallet['unpaid'] * wallet['price'],
-                        wallet['balance'], 
-                        wallet['balance'] * wallet['price'])
-                #####################################################################################
-                ## Display XVG wallet info, price, difficulty
-                #####################################################################################
-                elif wallet['coin'] == 'XVG':
-                    print '{}: \'{}\' {}\n Unc: {} Unp: {}, Tot: {} (${:1.2f}), Bal: {} (${:1.2f})'.format(
-                        wallet['coin'],
-                        wallet['name'],
-                        wallet['wal'],
-                        wallet['unconfirmed'], 
-                        wallet['unpaid'],
-                        wallet['unconfirmed'] + wallet['unpaid'],
-                        (wallet['unconfirmed'] + wallet['unpaid']) * wallet['price'],
-                        wallet['balance'], 
-                        wallet['balance'] * wallet['price'])
-                #####################################################################################
-                ## Display XMR wallet info, price, difficulty
-                #####################################################################################
-                elif wallet['coin'] == 'XMR':
-                    print '{}: \'{}\' {}\n Unc: {} Unp: {}, Tot: {} (${:1.2f}), Bal: {} (${:1.2f})'.format(
-                        wallet['coin'],
-                        wallet['name'],
-                        wallet['wal'],
-                        wallet['unconfirmed'], 
-                        wallet['unpaid'],
-                        wallet['unconfirmed'] + wallet['unpaid'],
-                        (wallet['unconfirmed'] + wallet['unpaid']) * wallet['price'],
-                        wallet['balance'], 
-                        wallet['balance'] * wallet['price'])
-                #####################################################################################
-                ## New wallet added to Hive?
-                #####################################################################################
-                else:
-                     print 'New coin: {}'.format(wallet['coin'])
-
-                print ' Price: ${:1.2f} Difficulty: {}'.format(wallet['price'], wallet['difficulty'])
+                    print ' Price: ${:1.5f} Difficulty: {}'.format(price, difficulty)
 
             print '======================================================================'
 
         except KeyboardInterrupt:
             print 'KeyboardInterrupt'
-            if temp:
+            if run_temperature and temp:
                 temp.stop()
             sys.exit()
         except Exception as e:

@@ -1,9 +1,7 @@
 # HiveOS-Monitor
 HiveOS and currency monitoring script with temperature monitoring and under/overclocks for heat management.
 
-=====================================================================
 SenseNet integration
-=====================================================================
 
 SenseNet in an Adafruit Feather M0 based temperature/etc. sensing network which includes remote and gateway
 devices. HiveOS-Monitor interacts with miner temperature data and can under/overclock a miner (currently one)
@@ -11,7 +9,6 @@ to aid with heat management. Under/oveerclocking is achieved by calling a precon
 miner via SSH.
 
 
-=====================================================================
 Feather M0 with 900MHz packet radio
 https://www.adafruit.com/product/3176
 M0 source shows what sensors were used; all Adafruit parts.
@@ -21,7 +18,7 @@ Gateway and remote M0 code mostly the same with a few key differences.
 
 
 Shell scripts on miner
-=====================================================================
+
 nvidia-oc-high - sets high/hot OC profile
 nvidia-oc-low - sets low/cool OC profile
 Copies backup of Hive nvidia OC profile to current OC profile and applies.

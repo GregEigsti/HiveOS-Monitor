@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 """
-
 HiveOS-Monitor
 
 HiveOS and currency monitoring script with temperature monitoring and heat management.
@@ -14,7 +13,6 @@ Project files:
 
 Greg Eigsti
 greg@eigsti.com
-
 """
 
 import json
@@ -183,6 +181,7 @@ def hive_login():
     global access_token
 
     #TODO: verify access token is still good
+    #HiveOS v2 API NYI in this area? It is documented but their swagger samples fail as well
     #response = web_get('https://api2.hiveos.farm/api/v2/auth/check')
     #print response
 
@@ -190,11 +189,21 @@ def hive_login():
         url = 'https://api2.hiveos.farm/api/v2/auth/login'
         headers = {'Content-Type': 'application/json'}
         params = {'login':secrets.HIVE_USER,'password':secrets.HIVE_PASS}
+
         response = requests.post(url, headers=headers, params=params)
+        if response.ok == True and response.status_code == 200:
+            access_token = response.json()['access_token']
+            if not access_token:
+                return False
 
-        access_token = response.json()['access_token']
+    return True
 
-    return access_token
+#####################################################################################3
+## Invalidate the HiveOS access token
+#####################################################################################3
+def invalidate_hive_access_token():
+    global access_token
+    access_token = None
 
 ########################################################################################################################
 ## Hive REST API helper
@@ -240,6 +249,5 @@ def get_worker_oc(farm, worker):
 #####################################################################################
 ## main script entry point
 #####################################################################################
-if __name__ == "__main__":
-    print 'Intended to be exeuted as a HiveOS-Monitor library'
-
+if __name__ == '__main__':
+    print('Intended to be exeuted as a HiveOS-Monitor library')

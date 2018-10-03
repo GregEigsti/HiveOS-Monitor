@@ -148,10 +148,10 @@ def sensorthread():
 def check_temperatures():
     global miner_oc_high
 
-    print 'OC:{} GW:{}F Miner:{}F Outside:{}F\n'.format(miner_oc_high, gateway_temp_f, miner_temp_f, outside_temp_f)
+    print 'OC:{} GW:{}F Miner:{}F Outside:{}F'.format(miner_oc_high, gateway_temp_f, miner_temp_f, outside_temp_f)
 
     # not tested for a while; since at least one major refactor.
-    # should work, not tested...
+    # should work or get you most of the way there, not tested reecently...
     """
     if miner_temp_f != 0.0:
         ssh_command = None
@@ -183,6 +183,5 @@ def check_temperatures():
 #####################################################################################
 ## main script entry point
 #####################################################################################
-if __name__ == "__main__":
-    print 'Intended to be exeuted as a HiveOS-Monitor library'
-
+if __name__ == '__main__':
+    print('Intended to be exeuted as a HiveOS-Monitor library')

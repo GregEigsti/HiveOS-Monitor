@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 """
-
 HiveOS-Monitor
 
 HiveOS and currency monitoring script with temperature monitoring and heat management.
@@ -14,7 +13,6 @@ Project files:
 
 Greg Eigsti
 greg@eigsti.com
-
 """
 
 ########################################################################################################################
@@ -36,5 +34,5 @@ MINER_IPADDR = '192.168.0.10'
 #####################################################################################
 ## main script entry point
 #####################################################################################
-if __name__ == "__main__":
-    print 'Intended to be exeuted as a HiveOS-Monitor library'
+if __name__ == '__main__':
+    print('Intended to be exeuted as a HiveOS-Monitor library')

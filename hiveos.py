@@ -83,20 +83,18 @@ def process_farm_workers(farm):
 
         for item in worker['miners_summary']['hashrates']:
             total_khs = float(item['hash'])
-            print(item['miner']),
-            print(item['algo']),
-            print('{:1.3f}'.format(total_khs))
-            print('acc: {}, inv {}, rej {}, ratio {}'.format(
-                item['shares']['accepted'],
-                item['shares']['invalid'],
-                item['shares']['rejected'],
-                item['shares']['ratio']))
+            print('{} {} {:1.3f}\nacc: {}, inv {}, rej {}, ratio {}'.format(
+                 item['miner'],
+                 item['algo'],
+                 total_khs,
+                 item['shares']['accepted'],
+                 item['shares']['invalid'],
+                 item['shares']['rejected'],
+                 item['shares']['ratio']))
 
         # oc change ability commented out. only displays current temps.
         if run_temperature:
             temp.check_temperatures()
-
-        print('')
 
         # get hiveos reported oc data
         oc = wh.get_worker_oc(farm, worker)
@@ -109,7 +107,7 @@ def process_farm_workers(farm):
         #####################################################################################
         # print miner info table
         #####################################################################################
-        print('        GPU0 GPU1 GPU2 GPU3 GPU4 GPU5 GPU6 GPU7')
+        print('\n        GPU0 GPU1 GPU2 GPU3 GPU4 GPU5 GPU6 GPU7')
         print('      ------------------------------------------------')
         # print hiveos miner temps
         for item in worker['miners_stats']['hashrates']:
@@ -182,7 +180,7 @@ def process_farm_wallets(farm_wallets):
             balance = wh.get_eth_balance(wal)
             account = wh.get_eth_account(wal)
             if account:
-                unpaid = account['data']['currentStatistics']['unpaid'] / 1000000000000000000.0
+                unpaid = account['data']['currentStatistics']['unpaid'] / 100000000000000000.0
                 staleShares = account['data']['currentStatistics']['staleShares']
                 activeWorkers = account['data']['currentStatistics']['activeWorkers']
                 invalidShares = account['data']['currentStatistics']['invalidShares']
@@ -206,7 +204,7 @@ def process_farm_wallets(farm_wallets):
         elif coin == 'XMR':
             price = wh.get_monero_price()
             difficulty = wh.get_monero_difficulty()
-            # TODO: add monero wallet info
+            #TODO: add monero wallet info
 
         #####################################################################################
         ## Unknown coin
